@@ -41,3 +41,6 @@ luac.out
 
 # IDEA files
 .idea
+
+#Vim swap files
+.*.sw[a-z]
