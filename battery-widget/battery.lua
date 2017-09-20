@@ -23,7 +23,7 @@ battery_widget = wibox.widget {
 }
 
 watch(
-    "acpi", 10,
+    'bash -c "acpi | head -n1"', 30,
     function(widget, stdout, stderr, exitreason, exitcode)
         local batteryType
         local _, status, charge_str, time = string.match(stdout, '(.+): (%a+), (%d?%d%d)%%,? ?.*')
@@ -54,7 +54,7 @@ watch(
 -- One way of creating a pop-up notification - naughty.notify
 local notification
 function show_battery_status()
-    awful.spawn.easy_async([[bash -c 'acpi']],
+    awful.spawn.easy_async([[bash -c 'acpi | head -n1']],
         function(stdout, _, _, _)
             notification = naughty.notify{
                 text =  stdout,
