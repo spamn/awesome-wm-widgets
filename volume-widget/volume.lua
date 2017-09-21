@@ -2,6 +2,7 @@ local awful = require("awful")
 local wibox = require("wibox")
 local watch = require("awful.widget.watch")
 local spawn = require("awful.spawn")
+local naughty = require("naughty")
 
 local path_to_icons = "/usr/share/icons/Adwaita/scalable/status/"
 local request_command = 'amixer -D pulse sget Master'
@@ -24,6 +25,7 @@ local function factory(args)
     volume_widget._toogle_mute = false
     volume_widget._increase = 0
     volume_widget._widget_update_pending = false
+    volume_widget._notification = nil
 
     function volume_widget:_update_widget(stdout, _, _, _)
         local volume = string.match(stdout, "(%d?%d?%d)%%")
@@ -60,6 +62,14 @@ local function factory(args)
         elseif (volume <= 100) then volume_icon_name="audio-volume-high-symbolic"
         end
         self.image = path_to_icons .. volume_icon_name .. ".svg"
+
+        self:update_notification()
+    end
+
+    function volume_widget:update_notification()
+        if self._notification ~= nil then
+            self:notify()
+        end
     end
 
     function volume_widget:update()
@@ -84,17 +94,54 @@ local function factory(args)
         self:update()
     end
 
+    function volume_widget:notify()
+        local notify_args = {
+            text = self._volume .. "%",
+            title = "Volume",
+            timeout = 5,
+            hover_timeout = 0.5,
+            width = 200,
+        }
+        if self._notification ~= nil then
+            notify_args.replaces_id = self._notification.id
+        end
+        self._notification = naughty.notify(notify_args)
+    end
+
+    function volume_widget:m_enter()
+        volume_widget:notify()
+        self:update()
+    end
+
+    function volume_widget:m_leave()
+        if (self._notification ~= nil) then
+            local notification = self._notification
+            self._notification = nil
+            naughty.destroy(notification)
+        end
+    end
+
     --[[ allows control volume level by:
     - clicking on the widget to mute/unmute
     - scrolling when cursor is over the widget
     ]]
-    volume_widget:connect_signal("button::press", function(_,_,_,button)
-        if (button == 4)     then volume_widget:increase_volume(5)
-        elseif (button == 5) then volume_widget:increase_volume(-5)
+    volume_widget:connect_signal("button::press", function(_,_,_,button,mods)
+        local increment = 5;
+        for i,mod in ipairs(mods) do
+            if mod == "Shift" then
+                increment = 1;
+            end
+        end
+        if (button == 4)     then volume_widget:increase_volume(increment)
+        elseif (button == 5) then volume_widget:increase_volume(-increment)
         elseif (button == 1) then volume_widget:toogle_mute()
         end
 
     end)
+
+    -- show notification when hovering with mouse
+    volume_widget:connect_signal("mouse::enter", function() volume_widget:m_enter() end)
+    volume_widget:connect_signal("mouse::leave", function() volume_widget:m_leave() end)
 
     volume_widget:update()
     watch(request_command, 60, volume_widget.update, volume_widget)
