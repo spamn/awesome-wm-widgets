@@ -8,6 +8,11 @@ local request_command = 'amixer -D pulse sget Master'
 
 local function factory(args)
 
+    if args == nil then
+        args = {}
+        --see https://stackoverflow.com/questions/6022519/define-default-values-for-function-arguments for adding default arguments
+    end
+
     local volume_widget = wibox.widget {
         {
             id = "icon",
