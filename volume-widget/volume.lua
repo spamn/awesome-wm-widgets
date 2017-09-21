@@ -4,7 +4,6 @@ local watch = require("awful.widget.watch")
 local spawn = require("awful.spawn")
 local naughty = require("naughty")
 
-local path_to_icons = "/usr/share/icons/Adwaita/scalable/status/"
 local request_command = 'amixer -D pulse sget Master'
 
 local function factory(args)
@@ -12,7 +11,6 @@ local function factory(args)
     local volume_widget = wibox.widget {
         {
             id = "icon",
-            image = path_to_icons .. "audio-volume-muted-symbolic.svg",
             resize = false,
             widget = wibox.widget.imagebox,
         },
@@ -22,10 +20,13 @@ local function factory(args)
         end
     }
 
+    volume_widget._path_to_icons = args.path_to_icons or "/usr/share/icons/Adwaita/scalable/status/"
     volume_widget._toogle_mute = false
     volume_widget._increase = 0
     volume_widget._widget_update_pending = false
     volume_widget._notification = nil
+    volume_widget.image = volume_widget._path_to_icons .. "audio-volume-muted-symbolic.svg"
+    volume_widget._bar_char_count = 20
 
     function volume_widget:_update_widget(stdout, _, _, _)
         local volume = string.match(stdout, "(%d?%d?%d)%%")
@@ -61,7 +62,7 @@ local function factory(args)
         elseif (volume < 67) then volume_icon_name="audio-volume-medium-symbolic"
         elseif (volume <= 100) then volume_icon_name="audio-volume-high-symbolic"
         end
-        self.image = path_to_icons .. volume_icon_name .. ".svg"
+        self.image = self._path_to_icons .. volume_icon_name .. ".svg"
 
         self:update_notification()
     end
@@ -95,13 +96,18 @@ local function factory(args)
     end
 
     function volume_widget:notify()
+        local printed_volume = string.format(" %3d%%", self._volume)
+        local notif_text = ""
+        local bar_count = math.floor(self._volume * self._bar_char_count / 100)
+        notif_text = string.rep("|", bar_count) .. string.rep(" ", self._bar_char_count - bar_count)
         local notify_args = {
-            text = self._volume .. "%",
             title = "Volume",
-            timeout = 5,
-            hover_timeout = 0.5,
-            width = 200,
+            text = notif_text .. printed_volume,
         }
+        if self._mute then
+            -- notify_args.fg = '#ff0000' not working, awesome bug? https://github.com/awesomeWM/awesome/issues/2040
+            notify_args.title = notify_args.title .. " (muted)"
+        end
         if self._notification ~= nil then
             notify_args.replaces_id = self._notification.id
         end
