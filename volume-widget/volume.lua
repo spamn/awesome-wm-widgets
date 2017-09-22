@@ -1,8 +1,8 @@
 local awful = require("awful")
 local wibox = require("wibox")
-local watch = require("awful.widget.watch")
 local spawn = require("awful.spawn")
 local naughty = require("naughty")
+local helpers = require("lain.helpers")
 
 local request_command = 'amixer -D pulse sget Master'
 
@@ -87,17 +87,23 @@ local function factory(args)
         end
     end
 
+    function volume_widget.update_callback()
+        volume_widget:update()
+    end
+
     function volume_widget:increase_volume(value)
         local incr = tonumber(value)
         if incr ~= nil then
             self._increase = self._increase + incr
         end
         self:update()
+        self:notify()
     end
 
     function volume_widget:toogle_mute()
         self._toogle_mute = not self._toogle_mute
         self:update()
+        self:notify()
     end
 
     function volume_widget:notify()
@@ -108,6 +114,7 @@ local function factory(args)
         local notify_args = {
             title = "Volume",
             text = notif_text .. printed_volume,
+            timeout = 1,
         }
         if self._mute then
             -- notify_args.fg = '#ff0000' not working, awesome bug? https://github.com/awesomeWM/awesome/issues/2040
@@ -116,6 +123,7 @@ local function factory(args)
         if self._notification ~= nil then
             notify_args.replaces_id = self._notification.id
         end
+        notify_args.destroy = self.notification_destroyed_cb
         self._notification = naughty.notify(notify_args)
     end
 
@@ -124,11 +132,13 @@ local function factory(args)
         self:update()
     end
 
+    function volume_widget.notification_destroyed_cb()
+        volume_widget._notification = nil
+    end
+
     function volume_widget:m_leave()
         if (self._notification ~= nil) then
-            local notification = self._notification
-            self._notification = nil
-            naughty.destroy(notification)
+            naughty.destroy(self._notification)
         end
     end
 
@@ -155,7 +165,7 @@ local function factory(args)
     volume_widget:connect_signal("mouse::leave", function() volume_widget:m_leave() end)
 
     volume_widget:update()
-    watch(request_command, 60, volume_widget.update, volume_widget)
+    helpers.newtimer("vol", 60, volume_widget.update_callback)
 
     return volume_widget
 
