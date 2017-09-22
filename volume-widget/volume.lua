@@ -31,7 +31,7 @@ local function factory(args)
     volume_widget._widget_update_pending = false
     volume_widget._notification = nil
     volume_widget.image = volume_widget._path_to_icons .. "audio-volume-muted-symbolic.svg"
-    volume_widget._bar_char_count = 20
+    volume_widget._bar_char_count = args.bar_char_count or 20
 
     function volume_widget:_update_widget(stdout, _, _, _)
         local volume = string.match(stdout, "(%d?%d?%d)%%")
@@ -109,12 +109,13 @@ local function factory(args)
     function volume_widget:notify()
         local printed_volume = string.format(" %3d%%", self._volume)
         local notif_text = ""
-        local bar_count = math.floor(self._volume * self._bar_char_count / 100)
+        local bar_count = math.floor(self._volume * self._bar_char_count / 100 + 0.5)
         notif_text = string.rep("|", bar_count) .. string.rep(" ", self._bar_char_count - bar_count)
         local notify_args = {
             title = "Volume",
             text = notif_text .. printed_volume,
             timeout = 1,
+            destroy = self.notification_destroyed_cb,
         }
         if self._mute then
             -- notify_args.fg = '#ff0000' not working, awesome bug? https://github.com/awesomeWM/awesome/issues/2040
@@ -123,12 +124,11 @@ local function factory(args)
         if self._notification ~= nil then
             notify_args.replaces_id = self._notification.id
         end
-        notify_args.destroy = self.notification_destroyed_cb
         self._notification = naughty.notify(notify_args)
     end
 
     function volume_widget:m_enter()
-        volume_widget:notify()
+        self:notify()
         self:update()
     end
 
